@@ -72,15 +72,12 @@ STAR --runThreadN 12 --genomeDir STAR/GRCh38.p12/star_indices/ --readFilesIn  tr
 echo ${R1} "mapping completed"
 done
 
-
-
-
-
 #Indexed bam files are necessary for many visualization and downstream analysis tools
 cd star_out
 for bamfile in */starAligned.sortedByCoord.out.bam ; do samtools index ${bamfile}; done
 
-#From this point any further analysis can be applied.
+#From this point any further analysis can be applied. 
+#See Rcode for DE analysis and correlations
 
 
 
