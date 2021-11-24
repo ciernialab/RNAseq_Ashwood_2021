@@ -1,0 +1,974 @@
+##Correlations
+
+##########################################################################################
+#read in subject info
+##########################################################################################
+library(readxl)
+library(dplyr)
+path ="C:/Users/Megan/Documents/Ciernia Lab/Bioninformatics/HumanMacrophageAshwood/correlations"
+setwd(path)
+
+#subjects in the final RNAseq analysis
+Info <- read.csv("KeptSamplesInfo.csv")
+
+#clinical data from Heather
+clincial <- read.csv("APP Y3 monocyte behaviors for Annie.csv")
+
+#check ids
+table(Info$subject.name %in% clincial$Milo_Subjects.IBC)
+#all 35 true
+
+#filter clinical for only included subjects
+clinical2 <- clincial[which(clincial$Milo_Subjects.IBC %in%Info$subject.name),]
+
+
+# read in log2CPM gene expression values for each subject
+log2CPM <- read.csv("Individual_log2CPM_allinfo.csv", na.strings=c("","NA"))
+
+
+#parse log2CPM and make long format
+log2CPM2 <- log2CPM[,c(63,69:ncol(log2CPM))]
+log2CPM2 = subset(log2CPM2, select = -c(PDDNOS.NT.101734NT, chromosome_name.y, start_position.y, end_position.y, hgnc_symbol.y, entrezgene_id.y, description.y, genelength.y))
+names(log2CPM2)[1] <- "hgnc_symbol"
+log2CPM2 <- log2CPM2 %>% drop_na()
+
+
+#flip
+log2CPM2 <- t(log2CPM2)
+colnames(log2CPM2) <- log2CPM2[1,]
+log2CPM3 <- log2CPM2[-1,]
+
+#split names
+log2CPM3 <- as.data.frame(log2CPM3)
+log2CPM3$condition <- rownames(log2CPM3)
+
+#remove duplicates
+log2CPM3<- log2CPM3[, !duplicated(colnames(log2CPM3))]
+
+log2CPM4 <- log2CPM3 %>% 
+  tidyr::separate(condition, into=c("Diangosis","Treatment","SubjectID"), sep="\\.")
+
+log2CPM4$SubjectID <- gsub("LPS","",log2CPM4$SubjectID)
+log2CPM4$SubjectID <- gsub("LTA","",log2CPM4$SubjectID)
+log2CPM4$SubjectID <- gsub("NT","",log2CPM4$SubjectID)
+
+#merge
+m <- merge(clinical2, log2CPM4, by.x="Milo_Subjects.IBC", by.y="SubjectID")
+
+write.csv(m,"Log2CPM_clinicaldata.csv")
+
+################################################################################
+#Correlations
+#subset into ASD, PDDNOS, all ASD or typical and LPS or LTA treated (more similar groups)
+
+ASD <- m %>% filter(Year3_Clinical_Impressions == "Full Autistic Disorder")
+ASD = subset(ASD, select = -c(1,2,3,4,5,7,9,10,16,21,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,11847))
+
+ASDNT <- ASD %>% filter(Treatment == "NT")
+ASDNT = subset(ASDNT, select = -c(11812))
+ASDLPS <- ASD %>% filter(Treatment == "LPS")
+ASDLPS = subset(ASDLPS, select = -c(11812))
+ASDLTA <- ASD %>% filter(Treatment == "LTA")
+ASDLTA = subset(ASDLTA, select = -c(11812))
+
+TD <- m %>% filter(Year3_Clinical_Impressions == "Typical")
+TD = subset(TD, select = -c(1,2,3,4,5,7,9,10,16,21,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,11847))
+
+TDNT <- TD %>% filter(Treatment == "NT")
+TDNT = subset(TDNT, select = -c(11,12,13,14,11812))
+TDLPS <- TD %>% filter(Treatment == "LPS")
+TDLPS = subset(TDLPS, select = -c(11,12,13,14,11812))
+TDLTA <- TD %>% filter(Treatment == "LTA")
+TDLTA = subset(TDLTA, select = -c(11,12,13,14,11812))
+
+
+PDDNOS <- m %>% filter(Year3_Clinical_Impressions == "Pervasive Developmental Disorder Not Otherwise Specified (PDDNOS) or Aspergerâ???Ts ")
+#had to change diagnosis to numbers to subset allASD (1=ASD, 2=PDDNOS, 3=Typical)
+subsetdata <- read.csv("dataforsubset.csv")
+allASD <- subsetdata %>% filter(Year3_Clinical_Impressions == 1 | Year3_Clinical_Impressions == 2)
+allASD <- allASD %>% filter(Treatment == "LPS" | Treatment == "LTA")
+
+
+#drop columns without non-numerical data or NAs
+
+PDDNOS = subset(PDDNOS, select = -c(1,2,3,4,5,7,9,10,16,21,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,11847,11848))
+allASD = subset(allASD, select = -c(1))
+allASD = subset(allASD, select = -c(1,2,3,4,5,7,9,10,16,21,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,11847,11848))
+
+cols.num <- c(1:11811)
+cols.numTD <- c(1:11807)
+
+#change to numeric
+ASDNT[cols.num] <- sapply(ASDNT[cols.num],as.numeric)
+ASDLPS[cols.num] <- sapply(ASDLPS[cols.num],as.numeric)
+ASDLTA[cols.num] <- sapply(ASDLTA[cols.num],as.numeric)
+
+TDNT[cols.numTD] <- sapply(TDNT[cols.numTD],as.numeric)
+TDLPS[cols.numTD] <- sapply(TDLPS[cols.numTD],as.numeric)
+TDLTA[cols.numTD] <- sapply(TDLTA[cols.numTD],as.numeric)
+
+
+PDDNOS[cols.num] <- sapply(PDDNOS[cols.num],as.numeric)
+allASD[cols.num] <- sapply(allASD[cols.num],as.numeric)
+
+
+#socialaffect_asd_cor <- cor.test(ASD$sa_total, ASD$RIOK1, method = "spearman")
+#socialaffect_asd_cor$p.value
+#socialaffect_asd_cor$estimate
+
+#loop through and perform correlation between sa_total and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$sa_total,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$sa_total,ASDNT[,i], method = "spearman")$p.value
+ 
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("sa_total","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASD_sa_total_correlationsNT.csv")
+###########################################################
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$sa_total,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$sa_total,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("sa_total","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_sa_total_correlations.csv")
+
+###########################################################
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$sa_total,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$sa_total,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("sa_total","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_sa_total_correlations.csv")
+
+#############graphing of significant correlations in ASDLPS or ASDLTA conditions
+
+######KDELR1
+
+ggscatter(TDLTA, x = "DQ", y = "TXK",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "sa_total", ylab = "KDELR1")
+
+ggscatter(ASDLPS, x = "sa_total", y = "KDELR1",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "sa_total", ylab = "KDELR1")
+
+ggscatter(ASDLTA, x = "sa_total", y = "KDELR1",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "sa_total", ylab = "KDELR1")
+
+
+
+######MT-TS1
+
+ggscatter(ASDNT, x = "DQ", y = "MT-TS1",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "sa_total", ylab = "MT-TS1")
+
+ggscatter(ASDLPS, x = "sa_total", y = "MT-TS1",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "sa_total", ylab = "MT-TS1")
+
+ggscatter(ASDLTA, x = "sa_total", y = "MT-TS1",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "sa_total", ylab = "MT-TS1")
+
+
+#loop through and perform correlation between rbb_total and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$rbb_total,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$rbb_total,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("rbb_total","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_rbb_total_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$rbb_total,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$rbb_total,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("rbb_total","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_rbb_total_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$rbb_total,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$rbb_total,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("rbb_total","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_rbb_total_correlations.csv")
+
+
+#loop through and perform correlation between ados_severity and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$ados_severity,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$ados_severity,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("ados_severity","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_ados_severity_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$ados_severity,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$ados_severity,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("ados_severity","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_ados_severity_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$ados_severity,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$ados_severity,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("ados_severity","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_ados_severity_correlations.csv")
+
+#loop through and perform correlation between MSEL (DQ) and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$DQ,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$DQ,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("DQ","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_DQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$DQ,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$DQ,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("DQ","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_DQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$DQ,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$DQ,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("DQ","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_DQ_correlations.csv")
+
+#loop through and perform correlation between MSEL (VDQ) and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$VDQ,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$VDQ,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("VDQ","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_VDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$VDQ,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$VDQ,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("VDQ","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_VDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$VDQ,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$VDQ,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("VDQ","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_VDQ_correlations.csv")
+
+#loop through and perform correlation between MSEL (NVDQ) and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$NVDQ,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$NVDQ,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("NVDQ","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_NVDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$NVDQ,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$NVDQ,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("NVDQ","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_NVDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$NVDQ,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$NVDQ,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("NVDQ","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_NVDQ_correlations.csv")
+
+
+#loop through and perform correlation constipation and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$constipation,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$constipation,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("constipation","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_constipation_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$constipation,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$constipation,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("constipation","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_constipation_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$constipation,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$constipation,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("constipation","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_constipation_correlations.csv")
+
+
+#loop through and perform correlation gaseousness_or_bloating_sensat and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$gaseousness_or_bloating_sensat,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$gaseousness_or_bloating_sensat,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("gaseousness_or_bloating_sensat","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_gaseousness_or_bloating_sensat_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$gaseousness_or_bloating_sensat,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$gaseousness_or_bloating_sensat,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("gaseousness_or_bloating_sensat","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_gaseousness_or_bloating_sensat_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$gaseousness_or_bloating_sensat,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$gaseousness_or_bloating_sensat,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("gaseousness_or_bloating_sensat","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_gaseousness_or_bloating_sensat_correlations.csv")
+
+#loop through and perform correlation Diarrhea and everything else
+#ASD
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$diarrhea,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$diarrhea,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("diarrhea","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_diarrhea_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$diarrhea,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$diarrhea,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("diarrhea","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_diarrhea_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$diarrhea,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$diarrhea,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("diarrhea","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_diarrhea_correlations.csv")
+
+#loop through and perform correlation abdominal_pain and everything else
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDNT$abdominal_pain,ASDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDNT$abdominal_pain,ASDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("abdominal_pain","vs",colnames(ASDNT)[1:ncol(ASDNT)])
+
+write.csv(res, "ASDNT_abdominal_pain_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLPS$abdominal_pain,ASDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLPS$abdominal_pain,ASDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("abdominal_pain","vs",colnames(ASDLPS)[1:ncol(ASDLPS)])
+
+write.csv(res, "ASDLPS_abdominal_pain_sensat_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(ASDLTA$abdominal_pain,ASDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(ASDLTA$abdominal_pain,ASDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("abdominal_pain","vs",colnames(ASDLTA)[1:ncol(ASDLTA)])
+
+write.csv(res, "ASDLTA_abdominal_pain_sensat_correlations.csv")
+
+#loop through and perform correlation between MSEL (DQ) and everything else
+#TD
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDNT$DQ,TDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDNT$DQ,TDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("DQ","vs",colnames(TDNT)[1:ncol(TDNT)])
+
+write.csv(res, "TDNT_DQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDLPS$DQ,TDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLPS$DQ,TDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("DQ","vs",colnames(TDLPS)[1:ncol(TDLPS)])
+
+write.csv(res, "TDLPS_DQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDLTA$DQ,TDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLTA$DQ,TDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("DQ","vs",colnames(TDLTA)[1:ncol(TDLTA)])
+
+write.csv(res, "TDLTA_DQ_correlations.csv")
+
+#loop through and perform correlation between MSEL (VDQ) and everything else
+#TD
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDNT$VDQ,TDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDNT$VDQ,TDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("VDQ","vs",colnames(TDNT)[1:ncol(TDNT)])
+
+write.csv(res, "TDNT_VDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(TDLPS$VDQ,TDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLPS$VDQ,TDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("VDQ","vs",colnames(TDLPS)[1:ncol(TDLPS)])
+
+write.csv(res, "TDLPS_VDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDLTA$VDQ,TDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLTA$VDQ,TDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("VDQ","vs",colnames(TDLTA)[1:ncol(TDLTA)])
+
+write.csv(res, "TDLTA_VDQ_correlations.csv")
+
+#loop through and perform correlation between MSEL (NVDQ) and everything else
+#TD
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDNT$NVDQ,TDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDNT$NVDQ,TDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("NVDQ","vs",colnames(TDNT)[1:ncol(TDNT)])
+
+write.csv(res, "TDNT_NVDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(TDLPS$NVDQ,TDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLPS$NVDQ,TDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("NVDQ","vs",colnames(TDLPS)[1:ncol(TDLPS)])
+
+write.csv(res, "TDLPS_NVDQ_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDLTA$NVDQ,TDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLTA$NVDQ,TDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("NVDQ","vs",colnames(TDLTA)[1:ncol(TDLTA)])
+
+write.csv(res, "TDLTA_NVDQ_correlations.csv")
+
+#loop through and perform correlation between constipation and everything else
+#TD
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDNT$constipation,TDNT[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDNT$constipation,TDNT[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("constipation","vs",colnames(TDNT)[1:ncol(TDNT)])
+
+write.csv(res, "TDNT_constipation_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11811){
+  rho[i]  <- cor.test(TDLPS$constipation,TDLPS[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLPS$constipation,TDLPS[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("constipation","vs",colnames(TDLPS)[1:ncol(TDLPS)])
+
+write.csv(res, "TDLPS_constipation_correlations.csv")
+
+rho <- pval <- NULL
+for(i in 1:11807){
+  rho[i]  <- cor.test(TDLTA$constipation,TDLTA[,i], method = "spearman")$estimate
+  pval[i] <- cor.test(TDLTA$constipation,TDLTA[,i], method = "spearman")$p.value
+  
+}
+
+res <- cbind(rho,pval)
+res <- as.data.frame(res)
+
+#correct for multiple comparisons
+res$padjust <- p.adjust(res$pval, method = "BH")
+
+rownames(res) <- paste("constipation","vs",colnames(TDLTA)[1:ncol(TDLTA)])
+
+write.csv(res, "TDLTA_constipation_correlations.csv")
+
+################################ Heatmap
+M <- read.csv("correlation summary.csv", header = TRUE)
+
+library(reshape2)
+melted_cormat <- melt(M)
+
+ggplot(data = melted_cormat, aes(variable, X, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Spearman\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  
+  coord_fixed()
+
+ggsave("correlations.pdf",width = 10, height = 10, dpi = 300)
+
+
+#test correlation out by graphing (not corrected for multiple testing)
+library(ggpubr)
+
+
+ggscatter(ASDNT, x = "DQ", y = "SNRPB",
+    add = "reg.line", color = "black", 
+    #ylim = c(0, 5) , xlim = c(60, 130), 
+    cor.coef = TRUE, cor.method = "spearman",
+    xlab = "MSEL DQ", ylab = "SNRPB") 
+
+ggsave("VDQvsMRPL11_ASDNT.pdf",width = 10, height = 10, dpi = 300)
+
+ggscatter(ASDLPS, x = "DQ", y = "SNRPB",
+          add = "reg.line", color = "blue", 
+          #ylim = c(0, 5), xlim = c(60, 130),
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "MSEL DQ", ylab = "SNRPB") 
+
+ggsave("VDQvsMRPL11_ASDLPS.pdf",width = 10, height = 10, dpi = 300)
+
+ggscatter(ASDLTA, x = "DQ", y = "SNRPB",
+          add = "reg.line", color = "red", 
+          #ylim = c(0, 5), xlim = c(60, 130),
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "MSEL DQ", ylab = "SNRPB") 
+
+ggsave("VDQvsMRPL11_ASDLTA.pdf",width = 10, height = 10, dpi = 300)
+
+ggscatter(TDNT, x = "DQ", y = "MRPL11",
+          add = "reg.line", color = "grey", ylim = c(0, 5), xlim = c(60, 130),
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "MSEL DQ", ylab = "MRPL11") 
+
+ggsave("VDQvsMRPL11_TDNT.pdf",width = 10, height = 10, dpi = 300)
+
+ggscatter(TDLPS, x = "VDQ", y = "MRPL11",
+          add = "reg.line", color = "cornflowerblue", ylim = c(0, 5), xlim = c(60, 130),
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "MSEL VDQ", ylab = "MRPL11") 
+
+ggsave("VDQvsMRPL11_TDLPS.pdf",width = 10, height = 10, dpi = 300)
+
+ggscatter(TDLTA, x = "VDQ", y = "MRPL11",
+          add = "reg.line", color = "pink", ylim = c(0, 5), xlim = c(60, 130),
+          cor.coef = TRUE, cor.method = "spearman",
+          xlab = "MSEL VDQ", ylab = "MRPL11") 
+
+ggsave("VDQvsMRPL11_TDLTA.pdf",width = 10, height = 10, dpi = 300)
+
