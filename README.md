@@ -76,19 +76,5 @@ done
 cd star_out
 for bamfile in */starAligned.sortedByCoord.out.bam ; do samtools index ${bamfile}; done
 
-#From this point any further analysis can be applied. 
+#From this point any further analysis can be applied
 #See Rcode for DE analysis and correlations
-
-
-
-
-
-
-
-
-
-
-
-
-
-
