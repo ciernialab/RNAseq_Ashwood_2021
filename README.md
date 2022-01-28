@@ -1,6 +1,6 @@
 # RNAseq_Ashwood_2021
 ```
-Samples deposited at (GEO accession #)
+Samples deposited at (GEO accession #GSE140702; https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE140702)
 
 #run592 /Data/2c7dycd7ut/UnalignedL1/Project_PAAC_L1_H1401P_Ciernia
 #run590 /Data/xfm70hwv8e/UnL6L7/Project_PAAC_H1401P_Ciernia
