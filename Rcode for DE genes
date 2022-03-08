@@ -105,7 +105,7 @@ allsamples <- table(keep.samples$Group)
 
 keep.samples$fastq.gz <- paste(keep.samples$subject.name,keep.samples$treatment,".fastq.gz",sep="")
 
-path ="C:\\Users\\Megan\\Documents\\Ciernia Lab\\Bioninformatics\\HumanMacrophageAshwood\\test"
+path ="C:\\Users\\Megan\\Documents\\Ciernia Lab\\Bioninformatics\\HumanMacrophageAshwood\\"
 setwd(path)
 
 library(xlsx)
@@ -131,11 +131,9 @@ write.csv(keep.samples, "KeptSamples.csv")
 #   
 #   print(m$name)
 # 
-#   write.table(file, file =paste("/Users/aciernia/Sync/CierniaLab/Members/SarahDada/Experiments/HumanMacrophageLPS/GEO/counts/",
+#   write.table(file, file =paste("C:\\Users\\Megan\\Documents\\Ciernia Lab\\Bioninformatics\\HumanMacrophageAshwood\\htcounts",
 # m$name, ".counts.txt", sep=""), sep="\t",quote=F)
 # }
-
-
 
 
 #read in only kept counts files:
